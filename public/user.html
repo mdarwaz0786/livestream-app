@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watching Live Stream</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    video {
+      border: 1px solid #333;
+      border-radius: 0.5rem;
+      width: 48%;
+      max-width: 1000px;
+      height: auto;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Watching Live Stream</h2>
+  <video id="remoteVideo" autoplay playsinline controls></video>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    const socket = io();
+    let peerConnection;
+    const remoteVideo = document.getElementById("remoteVideo");
+    const muteButton = document.getElementById("muteButton");
+    const videoButton = document.getElementById("videoButton");
+
+    const servers = {
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302",
+        },
+      ],
+    };
+
+    socket.emit("user-reconnected");
+    socket.on("offer", (offer) => {
+      peerConnection = new RTCPeerConnection(servers);
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", event.candidate);
+        };
+      };
+
+      peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+        return peerConnection.createAnswer();
+      }).then((answer) => {
+        return peerConnection.setLocalDescription(answer);
+      }).then(() => {
+        socket.emit("answer", peerConnection.localDescription);
+      }).catch((error) => {
+        console.error("Error while handling offer:", error);
+      });
+    });
+
+    socket.on("ice-candidate", (candidate) => {
+      const iceCandidate = new RTCIceCandidate(candidate);
+      peerConnection.addIceCandidate(iceCandidate).catch((error) => {
+        console.error("Error while adding received ICE candidate:", error);
+      });
+    });
+  </script>
+</body>
+
+</html>

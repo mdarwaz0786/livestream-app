@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Stream</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    video {
+      border: 1px solid #333;
+      border-radius: 0.5rem;
+      width: 48%;
+      max-width: 1000px;
+      height: auto;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      margin-bottom: 20px;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:active {
+      transform: scale(1);
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Live Stream</h2>
+  <video id="localVideo" autoplay playsinline controls></video>
+  <div class="button-container">
+    <button id="muteButton">Mute Audio</button>
+    <button id="videoButton">Stop Video</button>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let localStream;
+    let peerConnection;
+    const localVideo = document.getElementById("localVideo");
+    const muteButton = document.getElementById("muteButton");
+    const videoButton = document.getElementById("videoButton");
+
+    const constraints = {
+      video: true,
+      audio: true,
+    };
+
+    const servers = {
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302",
+        },
+      ],
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+      localStream = stream;
+      localVideo.srcObject = stream;
+      startCall();
+    }).catch((error) => {
+      console.error("Error while accessing media devices:", error);
+    });
+
+    function startCall() {
+      peerConnection = new RTCPeerConnection(servers);
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", event.candidate);
+        };
+      };
+
+      localStream.getTracks().forEach((track) => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.onnegotiationneeded = () => {
+        peerConnection.createOffer().then(offer => {
+          return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+          socket.emit("offer", peerConnection.localDescription);
+        }).catch((error) => {
+          console.error("Error while creating or sending offer:", error);
+        });
+      };
+    };
+
+    socket.emit("is-admin");
+    socket.on("resend-offer", () => {
+      startCall();
+    });
+
+    socket.on("answer", (answer) => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).catch((error) => {
+        console.error("Error while setting remote description:", error);
+      });
+    });
+
+    socket.on("ice-candidate", (candidate) => {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((error) => {
+        console.error("Error while adding received ICE candidate:", error);
+      });
+    });
+
+    let isMuted = false;
+    let isVideoStopped = false;
+
+    muteButton.addEventListener('click', () => {
+      const audioTrack = localStream.getAudioTracks()[0];
+      isMuted = !isMuted;
+      audioTrack.enabled = !isMuted;
+      muteButton.textContent = isMuted ? 'Unmute Audio' : 'Mute Audio';
+      socket.emit("mute-audio", isMuted);
+    });
+
+    videoButton.addEventListener('click', () => {
+      const videoTrack = localStream.getVideoTracks()[0];
+      isVideoStopped = !isVideoStopped;
+      videoTrack.enabled = !isVideoStopped;
+      videoButton.textContent = isVideoStopped ? 'Start Video' : 'Stop Video';
+      socket.emit("stop-video", isVideoStopped);
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "livestream",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "live",
+    "streaming",
+    "web",
+    "app"
+  ],
+  "author": "Md Arwaz",
+  "license": "ISC",
+  "description": "This is a live streaming web app",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.20.0",
+    "nodemon": "^3.1.4",
+    "socket.io": "^4.7.5"
+  }
+}
