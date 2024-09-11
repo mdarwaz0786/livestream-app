@@ -1,1 +1,1 @@
-This is live stream web app.
+This is a live stream web app.
