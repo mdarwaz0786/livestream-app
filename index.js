@@ -3,50 +3,53 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const dotenv = require("dotenv").config();
-const cors = require("cors");
 
 const app = express();
-app.use(express.json());
-app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server);
-
 app.use(express.static(path.join(__dirname, "public")));
 let adminSocket = null;
 
 io.on("connection", (socket) => {
-  console.log("user connected");
+  console.log("User connected", socket.id);
 
   socket.on("is-admin", () => {
     adminSocket = socket;
+    console.log("Admin connected");
   });
 
   socket.on("offer", (offer) => {
+    console.log("Broadcasting offer", offer);
     socket.broadcast.emit("offer", offer);
   });
 
   socket.on("answer", (answer) => {
+    console.log("Broadcasting answer", answer);
     socket.broadcast.emit("answer", answer);
   });
 
   socket.on("ice-candidate", (candidate) => {
+    console.log("Broadcasting ICE candidate", candidate);
     socket.broadcast.emit("ice-candidate", candidate);
   });
 
   socket.on("mute-audio", (mute) => {
+    console.log("Broadcasting mute audio", mute);
     socket.broadcast.emit("mute-audio", mute);
   });
 
   socket.on("stop-video", (stop) => {
+    console.log("Broadcasting stop video", stop);
     socket.broadcast.emit("stop-video", stop);
   });
 
   socket.on("disconnect", () => {
-    console.log("user disconnected");
+    console.log("User disconnected", socket.id);
   });
 
   socket.on("user-reconnected", () => {
     if (adminSocket) {
+      console.log("Resending offer to reconnected user");
       adminSocket.emit("resend-offer");
     };
   });
